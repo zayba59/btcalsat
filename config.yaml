@@ -1,0 +1,16 @@
+app:
+  name: Binance Futures AI Scalping Analyzer
+  language: tr
+simulation:
+  collateral_usdt: 1.0
+  leverage: 10
+  target_net_profit_usdt: 0.05
+  fee_rate: 0.0004
+  slippage_bps: 2.0
+  max_risk_usdt: 0.25
+market:
+  default_symbol: BTCUSDT
+  depth_levels: 50
+  stale_data_seconds: 5
+storage:
+  database: data/trades.sqlite3
