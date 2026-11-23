@@ -6,9 +6,10 @@ import websockets
 
 
 class BinanceMarketStream:
-    def __init__(self, symbol: str = "BTCUSDT") -> None:
+    def __init__(self, symbol: str = "BTCUSDT", testnet: bool = True) -> None:
         self.symbol = symbol.lower()
-        self.url = f"wss://fstream.binance.com/stream?streams={self.symbol}@depth20@100ms/{self.symbol}@aggTrade"
+        host = "stream.testnet.binance.vision" if testnet else "stream.binance.com:9443"
+        self.url = f"wss://{host}/stream?streams={self.symbol}@depth20@100ms/{self.symbol}@aggTrade"
 
     async def messages(self) -> AsyncIterator[dict]:
         while True:
