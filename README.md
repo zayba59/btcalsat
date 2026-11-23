@@ -24,6 +24,8 @@ Kontrol merkezi açıldıktan sonra `BOTU BAŞLAT (DRY-RUN)` ve `BOTU DURDUR` d�
 
 Analiz panelinde bir sembol seçip `CANLI VERİYİ BAŞLAT` düğmesine basıldığında seçim `data/selected_symbol.txt` içine yazılır. Bot her döngüde bu seçimi okur ve açık pozisyon yoksa aynı Spot Testnet sembolüne geçer. Açık pozisyon varken sembol değiştirmez; önce mevcut pozisyonu kapatır.
 
+Hızlı sinyal ayarı 1 dakikalık mum ve 10 saniyelik kontrol kullanır. EMA5/EMA13 ve RSI7, önceki daha yavaş 5 dakikalık EMA9/EMA21 ve RSI14 ayarına göre daha hızlıdır; bunun karşılığında daha fazla yanlış sinyal oluşabilir.
+
 ## Botu Testnet'te çalıştırma
 
 Önce `.env.example` içindeki değişkenleri terminal ortamına girin. Testnet API anahtarında yalnızca okuma ve işlem izinleri verin; para çekme izni vermeyin.

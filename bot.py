@@ -56,6 +56,11 @@ def run(dry_run: bool, requested_symbol: str | None = None) -> None:
     take_profit = float(simulation.get("take_profit_pct", 0.004))
     stop_loss = float(simulation.get("stop_loss_pct", 0.003))
     quote_amount = float(simulation.get("order_quote_usdt", simulation["collateral_usdt"]))
+    candle_interval = str(simulation.get("candle_interval", "1m"))
+    poll_seconds = int(simulation.get("poll_seconds", 10))
+    fast_period = int(simulation.get("ema_fast_period", 5))
+    slow_period = int(simulation.get("ema_slow_period", 13))
+    rsi_period = int(simulation.get("rsi_period", 7))
     print(f"{symbol} Spot Testnet bot başlatıldı. dry_run={dry_run}")
     print("Not: Bu yazılım kâr garantisi vermez; önce Testnet ve küçük miktarla doğrulayın.")
 
@@ -65,9 +70,9 @@ def run(dry_run: bool, requested_symbol: str | None = None) -> None:
             if position is None and new_symbol != symbol:
                 symbol = new_symbol
                 print(f"Seçili coin değişti: {symbol}")
-            closes = [float(row[4]) for row in client.klines(symbol, "5m", 100)]
+            closes = [float(row[4]) for row in client.klines(symbol, candle_interval, 100)]
             price = closes[-1]
-            signal = generate_signal(closes, position is not None)
+            signal = generate_signal(closes, position is not None, fast_period, slow_period, rsi_period)
             today = local_today()
             if position:
                 entry = position["entry"]
@@ -102,7 +107,7 @@ def run(dry_run: bool, requested_symbol: str | None = None) -> None:
             if guard.target_reached or guard.loss_limit_reached:
                 print("Günlük durma limiti oluştu; bot kapanıyor.")
                 return
-            time.sleep(60)
+            time.sleep(poll_seconds)
         except KeyboardInterrupt:
             print("Bot kullanıcı tarafından durduruldu.")
             return

@@ -36,10 +36,16 @@ class Signal:
     rsi: float
 
 
-def generate_signal(closes: list[float], in_position: bool) -> Signal:
-    fast = ema(closes, 9)
-    slow = ema(closes, 21)
-    strength = rsi(closes)
+def generate_signal(
+    closes: list[float],
+    in_position: bool,
+    fast_period: int = 9,
+    slow_period: int = 21,
+    rsi_period: int = 14,
+) -> Signal:
+    fast = ema(closes, fast_period)
+    slow = ema(closes, slow_period)
+    strength = rsi(closes, rsi_period)
     if not in_position and fast > slow and 50 <= strength <= 70:
         return Signal("BUY", "EMA9 > EMA21 ve RSI 50-70", fast, slow, strength)
     if in_position and (fast < slow or strength >= 75 or strength <= 35):
