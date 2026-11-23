@@ -12,6 +12,7 @@ from app.strategy import generate_signal
 
 
 ROOT = Path(__file__).resolve().parent
+SELECTED_SYMBOL_FILE = ROOT / "data" / "selected_symbol.txt"
 
 
 def load_config() -> dict:
@@ -25,17 +26,25 @@ def filled_values(order: dict) -> tuple[float, float]:
     return quantity, quote
 
 
+def selected_symbol(default: str) -> str:
+    if SELECTED_SYMBOL_FILE.exists():
+        value = SELECTED_SYMBOL_FILE.read_text(encoding="utf-8").strip().upper()
+        if value:
+            return value
+    return default
+
+
 def local_today() -> date:
     from zoneinfo import ZoneInfo
 
     return datetime.now(ZoneInfo("Europe/Istanbul")).date()
 
 
-def run(dry_run: bool) -> None:
+def run(dry_run: bool, requested_symbol: str | None = None) -> None:
     config = load_config()
     simulation = config["simulation"]
     market = config["market"]
-    symbol = market["default_symbol"]
+    symbol = (requested_symbol or selected_symbol(market["default_symbol"])).upper()
     client = BinanceSpotClient(testnet=simulation.get("testnet", True))
     guard = DailyProfitGuard(
         target_usdt=float(simulation["target_net_profit_usdt"]),
@@ -52,6 +61,10 @@ def run(dry_run: bool) -> None:
 
     while True:
         try:
+            new_symbol = selected_symbol(symbol)
+            if position is None and new_symbol != symbol:
+                symbol = new_symbol
+                print(f"Seçili coin değişti: {symbol}")
             closes = [float(row[4]) for row in client.klines(symbol, "5m", 100)]
             price = closes[-1]
             signal = generate_signal(closes, position is not None)
@@ -101,5 +114,6 @@ def run(dry_run: bool) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Binance Spot Testnet BTC bot")
     parser.add_argument("--dry-run", action="store_true", help="Emir göndermez; sinyali ve sanal işlemi gösterir")
+    parser.add_argument("--symbol", help="İşlem sembolü; verilmezse sol analiz panelindeki seçim kullanılır")
     args = parser.parse_args()
-    run(args.dry_run)
+    run(args.dry_run, args.symbol)

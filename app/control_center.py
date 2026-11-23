@@ -119,7 +119,7 @@ class ControlCenter(QMainWindow):
         self.dashboard_process = QProcess(self)
         self.dashboard_process.setWorkingDirectory(str(ROOT))
         self.dashboard_process.start(sys.executable, [str(ROOT / "main.py"), "--dashboard"])
-        self.write_log("Binance Futures analiz paneli başlatıldı. Gerçek emir gönderilmez.")
+        self.write_log("Binance Spot Testnet analiz paneli başlatıldı. Seçilen coin botta kullanılır.")
 
     def stop_dashboard(self) -> None:
         if self.dashboard_process:

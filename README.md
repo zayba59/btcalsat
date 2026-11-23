@@ -22,6 +22,8 @@ python main.py
 
 Kontrol merkezi açıldıktan sonra `BOTU BAŞLAT (DRY-RUN)` ve `BOTU DURDUR` düğmeleriyle bot yönetilebilir. Kontrol merkezi botu varsayılan olarak gerçek emir göndermeyen dry-run modunda başlatır.
 
+Analiz panelinde bir sembol seçip `CANLI VERİYİ BAŞLAT` düğmesine basıldığında seçim `data/selected_symbol.txt` içine yazılır. Bot her döngüde bu seçimi okur ve açık pozisyon yoksa aynı Spot Testnet sembolüne geçer. Açık pozisyon varken sembol değiştirmez; önce mevcut pozisyonu kapatır.
+
 ## Botu Testnet'te çalıştırma
 
 Önce `.env.example` içindeki değişkenleri terminal ortamına girin. Testnet API anahtarında yalnızca okuma ve işlem izinleri verin; para çekme izni vermeyin.

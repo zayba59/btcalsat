@@ -2,11 +2,16 @@ import asyncio
 import json
 import sys
 from datetime import datetime
+from pathlib import Path
 
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import QApplication, QGridLayout, QLabel, QLineEdit, QMainWindow, QPushButton, QVBoxLayout, QWidget
 
 from app.analysis import calculate_metrics, signal_from_imbalance
+
+
+ROOT = Path(__file__).resolve().parent.parent
+SELECTED_SYMBOL_FILE = ROOT / "data" / "selected_symbol.txt"
 
 
 class MarketWorker(QThread):
@@ -29,7 +34,7 @@ class MarketWorker(QThread):
             self.error.emit(f"Bağlantı kullanılamıyor: {exc}")
 
     async def _consume(self, websockets) -> None:
-        url = f"wss://fstream.binance.com/stream?streams={self.symbol}@depth20@100ms/{self.symbol}@aggTrade"
+        url = f"wss://stream.testnet.binance.vision/stream?streams={self.symbol}@depth20@100ms/{self.symbol}@aggTrade"
         while not self.stop_requested:
             try:
                 async with websockets.connect(url, ping_interval=20, ping_timeout=20) as socket:
@@ -54,7 +59,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.worker: MarketWorker | None = None
-        self.setWindowTitle("Binance Futures AI Scalping Analyzer")
+        self.setWindowTitle("Binance Spot Testnet AI Analyzer")
         self.resize(1000, 650)
         self._build_ui()
 
@@ -62,7 +67,7 @@ class MainWindow(QMainWindow):
         root = QWidget()
         layout = QVBoxLayout(root)
         layout.setContentsMargins(28, 24, 28, 24)
-        title = QLabel("BINANCE FUTURES  |  AI ORDER FLOW ANALYZER")
+        title = QLabel("BINANCE SPOT TESTNET  |  AI ORDER FLOW ANALYZER")
         title.setObjectName("title")
         layout.addWidget(title)
         row = QGridLayout()
@@ -95,7 +100,7 @@ class MainWindow(QMainWindow):
             card_layout.addWidget(box, index // 4, index % 4)
             self.cards[key] = value
         layout.addLayout(card_layout)
-        note = QLabel("Bu ekran yalnızca piyasa verisi ve analiz gösterir. Gerçek emir gönderimi devre dışıdır.")
+        note = QLabel("Solda seçilen coin sağdaki Spot Testnet botuna aktarılır. Gerçek emir gönderimi devre dışıdır.")
         note.setObjectName("note")
         layout.addWidget(note)
         self.setCentralWidget(root)
@@ -117,6 +122,8 @@ class MainWindow(QMainWindow):
         if not symbol:
             self.connection.setText("Coin sembolü girin")
             return
+        SELECTED_SYMBOL_FILE.parent.mkdir(parents=True, exist_ok=True)
+        SELECTED_SYMBOL_FILE.write_text(symbol, encoding="utf-8")
         self.worker = MarketWorker(symbol)
         self.worker.metrics.connect(self.update_metrics)
         self.worker.error.connect(self.show_error)
