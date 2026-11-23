@@ -4,7 +4,7 @@ import webbrowser
 import re
 from pathlib import Path
 
-from PySide6.QtCore import QProcess
+from PySide6.QtCore import QProcess, QTimer
 from PySide6.QtWidgets import QApplication, QGridLayout, QGroupBox, QHeaderView, QLabel, QMainWindow, QProgressBar, QPushButton, QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -37,6 +37,12 @@ class ControlCenter(QMainWindow):
         self.pnl = QLabel("GÜNLÜK NET KÂR / ZARAR: 0.0000 USDT")
         self.pnl.setObjectName("pnl")
         layout.addWidget(self.pnl)
+        self.symbol_label = QLabel("SEÇİLİ COİN: —")
+        self.symbol_label.setObjectName("symbol")
+        layout.addWidget(self.symbol_label)
+        self.symbol_timer = QTimer(self)
+        self.symbol_timer.timeout.connect(self.refresh_selected_symbol)
+        self.symbol_timer.start(1000)
         grid = QGridLayout()
         grid.setSpacing(12)
         buttons = [
@@ -83,6 +89,7 @@ class ControlCenter(QMainWindow):
             QLabel#subtitle { font-size: 15px; color: #6380a5; padding-bottom: 8px; }
             QLabel#status { background: white; border: 1px solid #d9e3f0; padding: 16px; color: #11834b; font-weight: 700; }
             QLabel#pnl { background: #eaf8ef; border: 1px solid #9bd4aa; padding: 14px; color: #087532; font-size: 18px; font-weight: 800; }
+            QLabel#symbol { background: #eef5ff; border: 1px solid #b6cdea; padding: 12px; color: #0b4a91; font-size: 16px; font-weight: 800; }
             QPushButton { background: #ffffff; border: 1px solid #173b66; color: #14385f; font-size: 15px; font-weight: 700; padding: 12px; }
             QPushButton:hover { background: #e8f0ff; }
             QProgressBar { background: #e2e8f1; border: 1px solid #cbd6e3; height: 22px; }
@@ -95,6 +102,13 @@ class ControlCenter(QMainWindow):
     def write_log(self, message: str) -> None:
         self.log.append(message)
         self.status.setText(message)
+
+    def refresh_selected_symbol(self) -> None:
+        symbol_file = ROOT / "data" / "selected_symbol.txt"
+        if symbol_file.exists():
+            symbol = symbol_file.read_text(encoding="utf-8").strip().upper()
+            if symbol:
+                self.symbol_label.setText(f"SEÇİLİ COİN: {symbol}")
 
     def run_git(self, *args: str) -> str:
         result = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, encoding="utf-8")

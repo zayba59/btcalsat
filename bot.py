@@ -98,7 +98,7 @@ def run(dry_run: bool, requested_symbol: str | None = None) -> None:
                         raise RuntimeError(f"Alış emri dolmadı: {json.dumps(order)}")
                     position = {"entry": cost / quantity, "quantity": quantity, "quantity_str": f"{quantity:.6f}", "cost": cost * (1 + fee_rate)}
                     print(f"TESTNET BUY price={cost / quantity:.2f} amount={cost:.2f} reason={signal.reason}")
-            print(f"price={price:.2f} signal={signal.action} rsi={signal.rsi:.1f} pnl={guard.realized_profit_usdt:.4f}")
+            print(f"symbol={symbol} price={price:.2f} signal={signal.action} rsi={signal.rsi:.1f} pnl={guard.realized_profit_usdt:.4f}")
             if guard.target_reached or guard.loss_limit_reached:
                 print("Günlük durma limiti oluştu; bot kapanıyor.")
                 return
