@@ -44,8 +44,9 @@ class MarketWorker(QThread):
                             break
                         message = json.loads(raw).get("data", {})
                         if message.get("e") == "depthUpdate":
-                            bids = message.get("b", [])
-                            asks = message.get("a", [])
+                            # Spot depth streams use bids/asks; futures streams use b/a.
+                            bids = message.get("bids", message.get("b", []))
+                            asks = message.get("asks", message.get("a", []))
                             values = calculate_metrics(bids, asks, 10)
                             direction, score = signal_from_imbalance(values.imbalance)
                             price = float(asks[0][0]) if asks else 0.0
