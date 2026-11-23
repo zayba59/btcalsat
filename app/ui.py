@@ -43,7 +43,7 @@ class MarketWorker(QThread):
                         if self.stop_requested:
                             break
                         message = json.loads(raw).get("data", {})
-                        if message.get("e") == "depthUpdate":
+                        if message.get("e") == "depthUpdate" or ("bids" in message and "asks" in message):
                             # Spot depth streams use bids/asks; futures streams use b/a.
                             bids = message.get("bids", message.get("b", []))
                             asks = message.get("asks", message.get("a", []))
