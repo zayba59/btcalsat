@@ -20,7 +20,7 @@ class MarketWorker(QThread):
 
     def __init__(self, symbol: str) -> None:
         super().__init__()
-        self.symbol = symbol.lower()
+        self.symbol = symbol.upper()
         self.stop_requested = False
 
     def stop(self) -> None:
