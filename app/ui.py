@@ -71,6 +71,7 @@ class MainWindow(QMainWindow):
         row.addWidget(QLabel("Coin"), 0, 0)
         self.symbol = QLineEdit("BTCUSDT")
         self.symbol.setPlaceholderText("BTCUSDT")
+        self.symbol.textChanged.connect(self.normalize_symbol_input)
         row.addWidget(self.symbol, 0, 1)
         self.start_button = QPushButton("CANLI VERİYİ BAŞLAT")
         self.start_button.clicked.connect(self.start_stream)
@@ -126,6 +127,15 @@ class MainWindow(QMainWindow):
         self.worker.error.connect(self.show_error)
         self.worker.start()
         self.connection.setText(f"{symbol} için bağlantı başlatılıyor…")
+
+    def normalize_symbol_input(self, value: str) -> None:
+        normalized = value.replace(" ", "").upper()
+        if normalized != value:
+            cursor = self.symbol.cursorPosition()
+            self.symbol.blockSignals(True)
+            self.symbol.setText(normalized)
+            self.symbol.setCursorPosition(min(cursor, len(normalized)))
+            self.symbol.blockSignals(False)
 
     def stop_stream(self) -> None:
         if self.worker and self.worker.isRunning():
