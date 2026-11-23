@@ -34,7 +34,7 @@ class MarketWorker(QThread):
             self.error.emit(f"Bağlantı kullanılamıyor: {exc}")
 
     async def _consume(self, websockets) -> None:
-        url = f"wss://stream.testnet.binance.vision/stream?streams={self.symbol}@depth20@100ms/{self.symbol}@aggTrade"
+        url = f"wss://stream.testnet.binance.vision/stream?streams={self.symbol}@depth20@100ms/{self.symbol}@bookTicker"
         while not self.stop_requested:
             try:
                 async with websockets.connect(url, ping_interval=20, ping_timeout=20) as socket:
@@ -47,6 +47,11 @@ class MarketWorker(QThread):
                             # Spot depth streams use bids/asks; futures streams use b/a.
                             bids = message.get("bids", message.get("b", []))
                             asks = message.get("asks", message.get("a", []))
+                        elif message.get("e") == "bookTicker" or all(key in message for key in ("b", "B", "a", "A")):
+                            bids = [[message["b"], message["B"]]]
+                            asks = [[message["a"], message["A"]]]
+                        else:
+                            continue
                             values = calculate_metrics(bids, asks, 10)
                             direction, score = signal_from_imbalance(values.imbalance)
                             price = float(asks[0][0]) if asks else 0.0
