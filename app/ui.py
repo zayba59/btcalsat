@@ -1,9 +1,9 @@
 import asyncio
-import json
 import sys
 from datetime import datetime
 from pathlib import Path
 
+import httpx
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import QApplication, QGridLayout, QLabel, QLineEdit, QMainWindow, QPushButton, QVBoxLayout, QWidget
 
@@ -28,37 +28,28 @@ class MarketWorker(QThread):
 
     def run(self) -> None:
         try:
-            import websockets
-            asyncio.run(self._consume(websockets))
+            asyncio.run(self._consume())
         except Exception as exc:
             self.error.emit(f"Bağlantı kullanılamıyor: {exc}")
 
-    async def _consume(self, websockets) -> None:
-        url = f"wss://stream.testnet.binance.vision/stream?streams={self.symbol}@depth20@100ms/{self.symbol}@bookTicker"
-        while not self.stop_requested:
-            try:
-                async with websockets.connect(url, ping_interval=20, ping_timeout=20) as socket:
-                    self.metrics.emit({"connection": "Bağlandı"})
-                    async for raw in socket:
-                        if self.stop_requested:
-                            break
-                        message = json.loads(raw).get("data", {})
-                        if message.get("e") == "depthUpdate" or ("bids" in message and "asks" in message):
-                            # Spot depth streams use bids/asks; futures streams use b/a.
-                            bids = message.get("bids", message.get("b", []))
-                            asks = message.get("asks", message.get("a", []))
-                        elif message.get("e") == "bookTicker" or all(key in message for key in ("b", "B", "a", "A")):
-                            bids = [[message["b"], message["B"]]]
-                            asks = [[message["a"], message["A"]]]
-                        else:
-                            continue
-                            values = calculate_metrics(bids, asks, 10)
-                            direction, score = signal_from_imbalance(values.imbalance)
-                            price = float(asks[0][0]) if asks else 0.0
-                            self.metrics.emit({"price": price, "spread": values.spread, "bid": values.bid_volume, "ask": values.ask_volume, "obi": values.imbalance, "signal": direction, "score": score, "connection": "Bağlandı", "time": datetime.now().strftime("%H:%M:%S")})
-            except Exception as exc:
-                self.error.emit(f"Yeniden bağlanıyor: {exc}")
-                await asyncio.sleep(3)
+    async def _consume(self) -> None:
+        url = "https://testnet.binance.vision/api/v3/depth"
+        async with httpx.AsyncClient(timeout=5) as client:
+            while not self.stop_requested:
+                try:
+                    response = await client.get(url, params={"symbol": self.symbol, "limit": 20})
+                    response.raise_for_status()
+                    message = response.json()
+                    bids = message.get("bids", [])
+                    asks = message.get("asks", [])
+                    values = calculate_metrics(bids, asks, 10)
+                    direction, score = signal_from_imbalance(values.imbalance)
+                    price = float(asks[0][0]) if asks else 0.0
+                    self.metrics.emit({"price": price, "spread": values.spread, "bid": values.bid_volume, "ask": values.ask_volume, "obi": values.imbalance, "signal": direction, "score": score, "connection": "Bağlandı", "time": datetime.now().strftime("%H:%M:%S")})
+                    await asyncio.sleep(1)
+                except Exception as exc:
+                    self.error.emit(f"Veri alınamıyor: {exc}")
+                    await asyncio.sleep(3)
 
 
 class MainWindow(QMainWindow):
