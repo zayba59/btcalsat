@@ -9,6 +9,7 @@ import yaml
 from app.risk import DailyProfitGuard
 from app.spot_client import BinanceSpotClient
 from app.strategy import generate_signal
+from app.analysis import calculate_metrics
 
 
 ROOT = Path(__file__).resolve().parent
@@ -52,15 +53,22 @@ def run(dry_run: bool, requested_symbol: str | None = None) -> None:
         trading_enabled=dry_run or bool(simulation.get("trading_enabled", False)),
     )
     position: dict | None = None
-    fee_rate = float(simulation.get("fee_rate", 0.0004))
-    take_profit = float(simulation.get("take_profit_pct", 0.004))
-    stop_loss = float(simulation.get("stop_loss_pct", 0.003))
+    fee_rate = float(simulation.get("fee_rate", 0.001))
+    take_profit = float(simulation.get("take_profit_pct", 0.008))
+    stop_loss = float(simulation.get("stop_loss_pct", 0.004))
     quote_amount = float(simulation.get("order_quote_usdt", simulation["collateral_usdt"]))
-    candle_interval = str(simulation.get("candle_interval", "1m"))
-    poll_seconds = int(simulation.get("poll_seconds", 10))
-    fast_period = int(simulation.get("ema_fast_period", 5))
-    slow_period = int(simulation.get("ema_slow_period", 13))
-    rsi_period = int(simulation.get("rsi_period", 7))
+    candle_interval = str(simulation.get("candle_interval", "5m"))
+    higher_interval = str(simulation.get("higher_interval", "15m"))
+    poll_seconds = int(simulation.get("poll_seconds", 15))
+    fast_period = int(simulation.get("ema_fast_period", 9))
+    slow_period = int(simulation.get("ema_slow_period", 21))
+    rsi_period = int(simulation.get("rsi_period", 14))
+    min_imbalance = float(simulation.get("min_imbalance", 0.10))
+    cooldown_seconds = int(simulation.get("cooldown_seconds", 300))
+    max_trades_per_day = int(simulation.get("max_trades_per_day", 20))
+    trades_today = 0
+    last_trade_at = 0.0
+    trade_date = local_today()
     print(f"{symbol} Spot Testnet bot başlatıldı. dry_run={dry_run}")
     print("Not: Bu yazılım kâr garantisi vermez; önce Testnet ve küçük miktarla doğrulayın.")
 
@@ -71,9 +79,17 @@ def run(dry_run: bool, requested_symbol: str | None = None) -> None:
                 symbol = new_symbol
                 print(f"Seçili coin değişti: {symbol}")
             closes = [float(row[4]) for row in client.klines(symbol, candle_interval, 100)]
+            higher_closes = [float(row[4]) for row in client.klines(symbol, higher_interval, 100)]
+            depth = client.depth(symbol, 20)
+            metrics = calculate_metrics(depth.get("bids", []), depth.get("asks", []), 10)
+            higher_trend_up = higher_closes[-1] > __import__("app.strategy", fromlist=["ema"]).ema(higher_closes, slow_period)
             price = closes[-1]
-            signal = generate_signal(closes, position is not None, fast_period, slow_period, rsi_period)
+            signal = generate_signal(closes, position is not None, fast_period, slow_period, rsi_period, higher_trend_up, metrics.imbalance, min_imbalance)
             today = local_today()
+            if today != trade_date:
+                trade_date = today
+                trades_today = 0
+                last_trade_at = 0.0
             if position:
                 entry = position["entry"]
                 if price >= entry * (1 + take_profit) or price <= entry * (1 - stop_loss) or signal.action == "SELL":
@@ -82,19 +98,29 @@ def run(dry_run: bool, requested_symbol: str | None = None) -> None:
                         proceeds = quantity * price
                         net = proceeds * (1 - fee_rate) - position["cost"]
                         guard.record_trade(net, today)
+                        trades_today += 1
+                        last_trade_at = time.time()
                         print(f"DRY SELL price={price:.2f} net={net:.4f} total={guard.realized_profit_usdt:.4f}")
                     else:
                         order = client.market_sell(symbol, position["quantity_str"])
                         quantity, proceeds = filled_values(order)
                         net = proceeds * (1 - fee_rate) - position["cost"]
                         guard.record_trade(net, today)
+                        trades_today += 1
+                        last_trade_at = time.time()
                         print(f"TESTNET SELL price={price:.2f} net={net:.4f} total={guard.realized_profit_usdt:.4f}")
                     position = None
-            elif guard.can_open_trade(today) and signal.action == "BUY":
+            elif (
+                guard.can_open_trade(today)
+                and signal.action == "BUY"
+                and trades_today < max_trades_per_day
+                and time.time() - last_trade_at >= cooldown_seconds
+            ):
                 if dry_run:
                     cost = quote_amount
                     quantity = cost / price
                     position = {"entry": price, "quantity": quantity, "quantity_str": f"{quantity:.6f}", "cost": cost * (1 + fee_rate)}
+                    last_trade_at = time.time()
                     print(f"DRY BUY price={price:.2f} amount={cost:.2f} reason={signal.reason}")
                 else:
                     order = client.market_buy(symbol, quote_amount)
@@ -102,8 +128,9 @@ def run(dry_run: bool, requested_symbol: str | None = None) -> None:
                     if quantity <= 0 or cost <= 0:
                         raise RuntimeError(f"Alış emri dolmadı: {json.dumps(order)}")
                     position = {"entry": cost / quantity, "quantity": quantity, "quantity_str": f"{quantity:.6f}", "cost": cost * (1 + fee_rate)}
+                    last_trade_at = time.time()
                     print(f"TESTNET BUY price={cost / quantity:.2f} amount={cost:.2f} reason={signal.reason}")
-            print(f"symbol={symbol} price={price:.2f} signal={signal.action} rsi={signal.rsi:.1f} pnl={guard.realized_profit_usdt:.4f}")
+            print(f"symbol={symbol} price={price:.2f} signal={signal.action} rsi={signal.rsi:.1f} obi={metrics.imbalance:.3f} trend={'UP' if higher_trend_up else 'DOWN'} trades={trades_today} pnl={guard.realized_profit_usdt:.4f}")
             if guard.target_reached or guard.loss_limit_reached:
                 print("Günlük durma limiti oluştu; bot kapanıyor.")
                 return

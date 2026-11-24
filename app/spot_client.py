@@ -31,6 +31,9 @@ class BinanceSpotClient:
     def klines(self, symbol: str, interval: str = "5m", limit: int = 100) -> list[list]:
         return self._request("GET", "/api/v3/klines", {"symbol": symbol, "interval": interval, "limit": limit})
 
+    def depth(self, symbol: str, limit: int = 20) -> dict:
+        return self._request("GET", "/api/v3/depth", {"symbol": symbol, "limit": limit})
+
     def exchange_info(self, symbol: str) -> dict:
         return self._request("GET", "/api/v3/exchangeInfo", {"symbol": symbol})
 
